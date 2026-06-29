@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agnes AI - 文生图与文生视频</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+      min-height: 100vh;
+    }
+    .glass-panel {
+      background: rgba(30, 41, 59, 0.8);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(71, 85, 105, 0.3);
+    }
+    .glass-input {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(71, 85, 105, 0.4);
+      color: #f1f5f9;
+    }
+    .glass-input:focus {
+      border-color: #10b981;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+      color: white;
+      transition: all 0.3s ease;
+    }
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: rgba(71, 85, 105, 0.3);
+      color: #cbd5e1;
+      transition: all 0.3s ease;
+    }
+    .btn-secondary:hover {
+      background: rgba(71, 85, 105, 0.5);
+    }
+    .tab-active {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+      border-bottom: 2px solid #10b981;
+    }
+    .tab-inactive {
+      color: #94a3b8;
+      transition: all 0.3s ease;
+    }
+    .tab-inactive:hover {
+      color: #f1f5f9;
+      background: rgba(71, 85, 105, 0.2);
+    }
+    .progress-bar {
+      background: linear-gradient(90deg, #059669, #10b981);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    .fade-in {
+      animation: fadeIn 0.3s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .scrollbar-hide::-webkit-scrollbar {
+      display: none;
+    }
+    .scrollbar-hide {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .loading-spinner {
+      border: 3px solid rgba(16, 185, 129, 0.2);
+      border-top-color: #10b981;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body class="text-slate-100 font-sans">
+  <div class="min-h-screen p-4 md:p-6 lg:p-8">
+    <header class="mb-6 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+          <i class="fas fa-wand-magic-sparkles text-white text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-teal-500 bg-clip-text text-transparent">Agnes AI</h1>
+          <p class="text-xs text-slate-400">文生图 · 文生视频</p>
+        </div>
+      </div>
+      <div class="text-sm text-slate-400">
+        <span class="inline-flex items-center gap-1">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          API 连接正常
+        </span>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-1 space-y-4">
+        <div class="glass-panel rounded-xl p-5">
+          <h3 class="text-sm font-medium text-slate-300 mb-3 flex items-center gap-2">
+            <i class="fas fa-image text-emerald-500"></i>
+            生成结果
+          </h3>
+          <div id="result-container" class="w-full aspect-square rounded-lg bg-slate-800/50 border border-slate-700/50 flex items-center justify-center overflow-hidden relative">
+            <div class="text-center text-slate-500">
+              <i class="fas fa-image text-4xl mb-2 opacity-30"></i>
+              <p class="text-sm">生成结果将显示在这里</p>
+            </div>
+          </div>
+          <div id="result-info" class="mt-3 text-xs text-slate-400 hidden">
+            <div class="flex items-center justify-between">
+              <span id="result-time"></span>
+              <button id="download-btn" class="text-emerald-400 hover:text-emerald-300 flex items-center gap-1">
+                <i class="fas fa-download"></i> 下载
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-panel rounded-xl p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-medium text-slate-300 flex items-center gap-2">
+              <i class="fas fa-history text-slate-400"></i>
+              历史记录
+            </h3>
+            <button id="clear-history-btn" class="text-xs text-slate-500 hover:text-red-400 transition-colors">
+              清空历史
+            </button>
+          </div>
+          <div id="history-list" class="space-y-2 max-h-48 overflow-y-auto scrollbar-hide">
+            <p class="text-xs text-slate-500 text-center py-4">暂无历史记录</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="lg:col-span-2 space-y-4">
+        <div class="glass-panel rounded-xl overflow-hidden">
+          <div class="flex border-b border-slate-700/50">
+            <button id="tab-image" class="flex-1 py-3 px-4 text-sm font-medium tab-active flex items-center justify-center gap-2">
+              <i class="fas fa-image"></i> 图片生成
+            </button>
+            <button id="tab-video" class="flex-1 py-3 px-4 text-sm font-medium tab-inactive flex items-center justify-center gap-2">
+              <i class="fas fa-video"></i> 视频生成
+            </button>
+          </div>
+
+          <div id="content-image" class="p-5 space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label class="text-xs text-slate-400 mb-1.5 block">模型</label>
+                <select id="image-model" class="glass-input w-full rounded-lg px-3 py-2 text-sm">
+                  <option value="agnes-image-2.1-flash">agnes-image-2.1-flash</option>
+                  <option value="agnes-image-2.0-flash">agnes-image-2.0-flash</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 mb-1.5 block">清晰度</label>
+                <select id="image-resolution" class="glass-input w-full rounded-lg px-3 py-2 text-sm">
+                  <option value="1024x1024">1024 × 1024</option>
+                  <option value="1024x768">1024 × 768</option>
+                  <option value="768x1024">768 × 1024</option>
+                  <option value="512x512">512 × 512</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 mb-1.5 block">比例</label>
+                <select id="image-ratio" class="glass-input w-full rounded-lg px-3 py-2 text-sm">
+                  <option value="auto">自动</option>
+                  <option value="1:1">1:1 正方形</option>
+                  <option value="4:3">4:3 横屏</option>
+                  <option value="3:4">3:4 竖屏</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="text-xs text-slate-400">提示词</label>
+                <div class="flex gap-1">
+                  <button class="text-xs px-2 py-1 rounded bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors" onclick="fillPrompt('一只可爱的柴犬在樱花树下睡觉，温暖的阳光，柔和的粉色花瓣飘落')">柴犬</button>
+                  <button class="text-xs px-2 py-1 rounded bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors" onclick="fillPrompt('未来城市夜景，霓虹灯，赛博朋克风格，高楼大厦')">赛博朋克</button>
+                  <button class="text-xs px-2 py-1 rounded bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors" onclick="fillPrompt('山水水墨画，云雾缭绕，中国传统艺术风格')">水墨画</button>
+                  <button class="text-xs px-2 py-1 rounded bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors" onclick="fillPrompt('科幻飞船在太空中飞行，星辰大海，浩瀚宇宙')">科幻</button>
+                </div>
+              </div>
+              <textarea id="image-prompt" class="glass-input w-full rounded-lg px-3 py-3 text-sm h-28 resize-none" placeholder="输入你想生成的画面描述，支持中文..."></textarea>
+            </div>
+
+            <div>
+              <label class="text-xs text-slate-400 mb-1.5 block">参考图（可选，最多6张）</label>
+              <div class="flex gap-2">
+                <input type="file" id="image-reference" accept="image/*" multiple class="hidden">
+                <button id="upload-ref-btn" class="btn-secondary rounded-lg px-4 py-2 text-sm flex items-center gap-2">
+                  <i class="fas fa-upload"></i> 上传参考图
+                </button>
+                <button id="clear-ref-btn" class="btn-secondary rounded-lg px-4 py-2 text-sm hidden">
+                  清空参考图
+                </button>
+              </div>
+              <div id="ref-images-preview" class="mt-2 flex gap-2 flex-wrap"></div>
+            </div>
+
+            <div class="flex gap-3">
+              <button id="generate-image-btn" class="btn-primary flex-1 rounded-lg py-3 text-sm font-medium flex items-center justify-center gap-2">
+                <i class="fas fa-magic"></i> 生成图片
+              </button>
+              <button id="copy-prompt-btn" class="btn-secondary rounded-lg px-6 py-3 text-sm flex items-center justify-center gap-2">
+                <i class="fas fa-copy"></i> 复制
+              </button>
+              <button id="reset-image-btn" class="btn-secondary rounded-lg px-6 py-3 text-sm flex items-center justify-center gap-2">
+                <i class="fas fa-rotate-right"></i> 重置
+              </button>
+            </div>
+
+            <div id="image-progress" class="hidden">
+              <div class="flex items-center justify-between text-xs text-slate-400 mb-1.5">
+                <span>生成进度</span>
+                <span id="image-progress-text">0%</span>
+              </div>
+              <div class="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                <div id="image-progress-bar" class="progress-bar h-full w-0"></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="content-video" class="p-5 space-y-4 hidden">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div>
+                <label class="text-xs text-slate-400 mb-1.5 block">模型</label>
+                <select id="video-model" class="glass-input w-full rounded-lg px-3 py-2 text-sm">
+                  <option value="agnes-video-v2.0">agnes-video-v2.0</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 mb-1.5 block">宽度</label>
+                <input type="number" id="video-width" class="glass-input w-full rounded-lg px-3 py-2 text-sm" value="1152">
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 mb-1.5 block">高度</label>
+                <input type="number" id="video-height" class="glass-input w-full rounded-lg px-3 py-2 text-sm" value="768">
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 mb-1.5 block">帧率</label>
+                <select id="video-fps" class="glass-input w-full rounded-lg px-3 py-2 text-sm">
+                  <option value="24">24 FPS</option>
+                  <option value="30">30 FPS</option>
+                  <option value="60">60 FPS</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs text-slate-400 mb-1.5 block">帧数</label>
+                <select id="video-frames" class="glass-input w-full rounded-lg px-3 py-2 text-sm">
+                  <option value="121">121 帧 (~5秒)</option>
+                  <option value="241">241 帧 (~10秒)</option>
+                  <option value="441">441 帧 (~18秒)</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 mb-1.5 block">时长</label>
+                <div class="glass-input w-full rounded-lg px-3 py-2 text-sm flex items-center">
+                  <span id="video-duration">约 5 秒</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="text-xs text-slate-400">提示词</label>
+                <div class="flex gap-1">
+                  <button class="text-xs px-2 py-1 rounded bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors" onclick="fillVideoPrompt('A cat walking on the beach at sunset')">猫咪沙滩</button>
+                  <button class="text-xs px-2 py-1 rounded bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors" onclick="fillVideoPrompt('Red sports car on mountain road')">跑车山路</button>
+                  <button class="text-xs px-2 py-1 rounded bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-200 transition-colors" onclick="fillVideoPrompt('Chinese night market street food')">中国夜市</button>
+                </div>
+              </div>
+              <textarea id="video-prompt" class="glass-input w-full rounded-lg px-3 py-3 text-sm h-28 resize-none" placeholder="输入视频描述，建议使用英文..."></textarea>
+            </div>
+
+            <div class="flex gap-3">
+              <button id="generate-video-btn" class="btn-primary flex-1 rounded-lg py-3 text-sm font-medium flex items-center justify-center gap-2">
+                <i class="fas fa-play"></i> 生成视频
+              </button>
+              <button id="copy-video-prompt-btn" class="btn-secondary rounded-lg px-6 py-3 text-sm flex items-center justify-center gap-2">
+                <i class="fas fa-copy"></i> 复制
+              </button>
+              <button id="reset-video-btn" class="btn-secondary rounded-lg px-6 py-3 text-sm flex items-center justify-center gap-2">
+                <i class="fas fa-rotate-right"></i> 重置
+              </button>
+            </div>
+
+            <div id="video-progress" class="hidden">
+              <div class="flex items-center justify-between text-xs text-slate-400 mb-1.5">
+                <span>生成进度</span>
+                <div class="flex items-center gap-3">
+                  <span id="video-elapsed-time" class="text-yellow-400"></span>
+                  <span id="video-progress-text">提交任务...</span>
+                  <button id="cancel-video-btn" class="text-red-400 hover:text-red-300 transition-colors">
+                    <i class="fas fa-times-circle"></i> 取消
+                  </button>
+                </div>
+              </div>
+              <div class="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                <div id="video-progress-bar" class="progress-bar h-full w-0"></div>
+              </div>
+              <div class="mt-2 text-xs text-slate-500">
+                <span id="video-task-id"></span>
+                <span id="video-queue-hint" class="ml-2 text-yellow-400"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-panel rounded-xl p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-medium text-slate-300 flex items-center gap-2">
+              <i class="fas fa-key text-slate-400"></i>
+              API Key 设置
+            </h3>
+            <span id="key-status" class="text-xs text-slate-500">未配置</span>
+          </div>
+          <div class="flex gap-2">
+            <div class="flex-1 relative">
+              <input type="password" id="api-key-input" class="glass-input w-full rounded-lg px-3 py-2 text-sm pr-10" placeholder="输入您的 Agnes AI API Key...">
+              <button id="toggle-key-btn" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
+                <i class="fas fa-eye"></i>
+              </button>
+            </div>
+            <button id="save-key-btn" class="btn-primary rounded-lg px-6 py-2 text-sm font-medium">
+              保存 Key
+            </button>
+            <button id="clear-key-btn" class="btn-secondary rounded-lg px-6 py-2 text-sm">
+              清除
+            </button>
+          </div>
+          <p class="text-xs text-slate-500 mt-2">
+            API Key 仅保存在本地浏览器中，不会上传到服务器。如需获取 API Key，请访问 <a href="https://platform.agnes-ai.com/" target="_blank" class="text-emerald-400 hover:underline">platform.agnes-ai.com</a>
+          </p>
+        </div>
+
+        <div class="glass-panel rounded-xl p-5">
+          <h3 class="text-sm font-medium text-slate-300 mb-3 flex items-center gap-2">
+            <i class="fas fa-cog text-slate-400"></i>
+            接口配置
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-slate-400 mb-1.5 block">API Endpoint</label>
+              <input type="text" id="api-endpoint" class="glass-input w-full rounded-lg px-3 py-2 text-sm" value="https://apihub.agnes-ai.com/v1">
+            </div>
+            <div>
+              <label class="text-xs text-slate-400 mb-1.5 block">说明</label>
+              <div class="glass-input w-full rounded-lg px-3 py-2 text-sm flex items-center text-slate-500">
+                直接调用 Agnes AI 官方 API
+              </div>
+            </div>
+          </div>
+          <div class="flex gap-2 mt-3">
+            <button id="save-config-btn" class="btn-secondary rounded-lg px-4 py-2 text-sm">
+              保存配置
+            </button>
+            <button id="reset-config-btn" class="btn-secondary rounded-lg px-4 py-2 text-sm">
+              恢复默认
+            </button>
+          </div>
+        </div>
+
+        <div class="glass-panel rounded-xl p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-medium text-slate-300 flex items-center gap-2">
+              <i class="fas fa-bug text-slate-400"></i>
+              调试信息
+            </h3>
+            <button id="clear-debug-btn" class="text-xs text-slate-500 hover:text-red-400 transition-colors">
+              清空日志
+            </button>
+          </div>
+          <div id="debug-log" class="bg-slate-900/50 rounded-lg p-3 h-32 overflow-y-auto text-xs font-mono text-slate-400 scrollbar-hide">
+            <p class="text-slate-500">等待请求...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="error-toast" class="fixed bottom-6 right-6 bg-red-500/90 text-white px-4 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300 z-50 flex items-center gap-2">
+      <i class="fas fa-exclamation-circle"></i>
+      <span id="error-message"></span>
+    </div>
+
+    <div id="success-toast" class="fixed bottom-6 right-6 bg-emerald-500/90 text-white px-4 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300 z-50 flex items-center gap-2">
+      <i class="fas fa-check-circle"></i>
+      <span id="success-message"></span>
+    </div>
+  </div>
+
+  <script>
+    let apiKey = localStorage.getItem('agnesApiKey') || '';
+    let endpoint = localStorage.getItem('agnesEndpoint') || 'https://apihub.agnes-ai.com/v1';
+    let currentTaskId = null;
+    let pollingInterval = null;
+    let referenceImages = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initElements();
+      loadHistory();
+    });
+
+    function initElements() {
+      document.getElementById('api-key-input').value = apiKey;
+      document.getElementById('api-endpoint').value = endpoint;
+      updateKeyStatus();
+
+      document.getElementById('toggle-key-btn').addEventListener('click', toggleKeyVisibility);
+      document.getElementById('save-key-btn').addEventListener('click', saveApiKey);
+      document.getElementById('clear-key-btn').addEventListener('click', clearApiKey);
+      document.getElementById('save-config-btn').addEventListener('click', saveConfig);
+      document.getElementById('reset-config-btn').addEventListener('click', resetConfig);
+
+      document.getElementById('tab-image').addEventListener('click', () => switchTab('image'));
+      document.getElementById('tab-video').addEventListener('click', () => switchTab('video'));
+
+      document.getElementById('generate-image-btn').addEventListener('click', generateImage);
+      document.getElementById('generate-video-btn').addEventListener('click', generateVideo);
+      document.getElementById('copy-prompt-btn').addEventListener('click', () => copyPrompt('image-prompt'));
+      document.getElementById('copy-video-prompt-btn').addEventListener('click', () => copyPrompt('video-prompt'));
+      document.getElementById('reset-image-btn').addEventListener('click', resetImageForm);
+      document.getElementById('reset-video-btn').addEventListener('click', resetVideoForm);
+
+      document.getElementById('upload-ref-btn').addEventListener('click', () => document.getElementById('image-reference').click());
+      document.getElementById('image-reference').addEventListener('change', handleRefImageUpload);
+      document.getElementById('clear-ref-btn').addEventListener('click', clearRefImages);
+
+      document.getElementById('download-btn').addEventListener('click', downloadResult);
+      document.getElementById('clear-history-btn').addEventListener('click', clearHistory);
+      document.getElementById('clear-debug-btn').addEventListener('click', () => {
+        document.getElementById('debug-log').innerHTML = '<p class="text-slate-500">等待请求...</p>';
+      });
+      document.getElementById('cancel-video-btn').addEventListener('click', cancelVideoGeneration);
+
+      document.getElementById('video-frames').addEventListener('change', updateVideoDuration);
+      document.getElementById('video-fps').addEventListener('change', updateVideoDuration);
+      updateVideoDuration();
+
+      if (Notification.permission !== 'granted') {
+        Notification.requestPermission();
+      }
+    }
+
+    function addDebugLog(message, type = 'info') {
+      const log = document.getElementById('debug-log');
+      const timestamp = new Date().toLocaleTimeString();
+      const colors = {
+        info: 'text-slate-400',
+        success: 'text-emerald-400',
+        error: 'text-red-400',
+        warning: 'text-yellow-400'
+      };
+      const color = colors[type] || colors.info;
+      const line = document.createElement('div');
+      line.className = color;
+      line.innerHTML = `<span class="text-slate-500">[${timestamp}]</span> ${message}`;
+      log.appendChild(line);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function cancelVideoGeneration() {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+      }
+      currentTaskId = null;
+      setLoading('video', false);
+      document.getElementById('video-progress').classList.add('hidden');
+      document.getElementById('video-elapsed-time').textContent = '';
+      document.getElementById('video-queue-hint').textContent = '';
+      showSuccess('视频生成已取消');
+    }
+
+    function toggleKeyVisibility() {
+      const input = document.getElementById('api-key-input');
+      const icon = document.getElementById('toggle-key-btn').querySelector('i');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fas fa-eye-slash';
+      } else {
+        input.type = 'password';
+        icon.className = 'fas fa-eye';
+      }
+    }
+
+    function saveApiKey() {
+      const key = document.getElementById('api-key-input').value.trim();
+      if (!key) {
+        showError('请输入 API Key');
+        return;
+      }
+      localStorage.setItem('agnesApiKey', key);
+      apiKey = key;
+      updateKeyStatus();
+      showSuccess('API Key 已保存');
+    }
+
+    function clearApiKey() {
+      localStorage.removeItem('agnesApiKey');
+      apiKey = '';
+      document.getElementById('api-key-input').value = '';
+      updateKeyStatus();
+      showSuccess('API Key 已清除');
+    }
+
+    function updateKeyStatus() {
+      const status = document.getElementById('key-status');
+      if (apiKey) {
+        status.textContent = '已配置';
+        status.className = 'text-xs text-emerald-400';
+      } else {
+        status.textContent = '未配置';
+        status.className = 'text-xs text-slate-500';
+      }
+    }
+
+    function saveConfig() {
+      const newEndpoint = document.getElementById('api-endpoint').value.trim();
+      if (!newEndpoint) {
+        showError('请输入 Endpoint');
+        return;
+      }
+      localStorage.setItem('agnesEndpoint', newEndpoint);
+      endpoint = newEndpoint;
+      showSuccess('配置已保存');
+    }
+
+    function resetConfig() {
+      endpoint = 'https://apihub.agnes-ai.com/v1';
+      localStorage.setItem('agnesEndpoint', endpoint);
+      document.getElementById('api-endpoint').value = endpoint;
+      showSuccess('配置已恢复默认');
+    }
+
+    function switchTab(tab) {
+      const imageTab = document.getElementById('tab-image');
+      const videoTab = document.getElementById('tab-video');
+      const imageContent = document.getElementById('content-image');
+      const videoContent = document.getElementById('content-video');
+
+      if (tab === 'image') {
+        imageTab.className = 'flex-1 py-3 px-4 text-sm font-medium tab-active flex items-center justify-center gap-2';
+        videoTab.className = 'flex-1 py-3 px-4 text-sm font-medium tab-inactive flex items-center justify-center gap-2';
+        imageContent.classList.remove('hidden');
+        videoContent.classList.add('hidden');
+      } else {
+        videoTab.className = 'flex-1 py-3 px-4 text-sm font-medium tab-active flex items-center justify-center gap-2';
+        imageTab.className = 'flex-1 py-3 px-4 text-sm font-medium tab-inactive flex items-center justify-center gap-2';
+        videoContent.classList.remove('hidden');
+        imageContent.classList.add('hidden');
+      }
+    }
+
+    function fillPrompt(text) {
+      document.getElementById('image-prompt').value = text;
+    }
+
+    function fillVideoPrompt(text) {
+      document.getElementById('video-prompt').value = text;
+    }
+
+    function copyPrompt(elementId) {
+      const textarea = document.getElementById(elementId);
+      textarea.select();
+      navigator.clipboard.writeText(textarea.value);
+      showSuccess('已复制到剪贴板');
+    }
+
+    function resetImageForm() {
+      document.getElementById('image-prompt').value = '';
+      document.getElementById('image-model').value = 'agnes-image-2.1-flash';
+      document.getElementById('image-resolution').value = '1024x1024';
+      document.getElementById('image-ratio').value = 'auto';
+      clearRefImages();
+      clearResult();
+    }
+
+    function resetVideoForm() {
+      document.getElementById('video-prompt').value = '';
+      document.getElementById('video-width').value = '1152';
+      document.getElementById('video-height').value = '768';
+      document.getElementById('video-fps').value = '24';
+      document.getElementById('video-frames').value = '121';
+      updateVideoDuration();
+      clearResult();
+    }
+
+    function handleRefImageUpload(e) {
+      const files = e.target.files;
+      if (!files || files.length === 0) return;
+
+      for (let i = 0; i < files.length && referenceImages.length < 6; i++) {
+        const file = files[i];
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          referenceImages.push({
+            name: file.name,
+            dataUrl: event.target.result
+          });
+          renderRefImages();
+        };
+        reader.readAsDataURL(file);
+      }
+      e.target.value = '';
+    }
+
+    function renderRefImages() {
+      const container = document.getElementById('ref-images-preview');
+      container.innerHTML = '';
+
+      referenceImages.forEach((img, index) => {
+        const div = document.createElement('div');
+        div.className = 'relative w-20 h-20 rounded-lg overflow-hidden border border-slate-600';
+        div.innerHTML = `
+          <img src="${img.dataUrl}" class="w-full h-full object-cover">
+          <button onclick="removeRefImage(${index})" class="absolute top-1 right-1 w-5 h-5 bg-red-500/80 rounded-full flex items-center justify-center text-white text-xs hover:bg-red-600">
+            ×
+          </button>
+        `;
+        container.appendChild(div);
+      });
+
+      if (referenceImages.length > 0) {
+        document.getElementById('clear-ref-btn').classList.remove('hidden');
+      } else {
+        document.getElementById('clear-ref-btn').classList.add('hidden');
+      }
+    }
+
+    function removeRefImage(index) {
+      referenceImages.splice(index, 1);
+      renderRefImages();
+    }
+
+    function clearRefImages() {
+      referenceImages = [];
+      renderRefImages();
+    }
+
+    async function generateImage() {
+      if (!apiKey) {
+        showError('请先配置 API Key');
+        return;
+      }
+
+      const prompt = document.getElementById('image-prompt').value.trim();
+      if (!prompt) {
+        showError('请输入提示词');
+        return;
+      }
+
+      const model = document.getElementById('image-model').value;
+      const size = document.getElementById('image-resolution').value;
+
+      setLoading('image', true);
+
+      try {
+        const payload = {
+          model,
+          prompt,
+          size
+        };
+
+        const response = await fetch(`${endpoint}/images/generations`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || '生成失败');
+        }
+
+        if (data.data && data.data[0] && data.data[0].url) {
+          const imageUrl = data.data[0].url;
+          displayImageResult(imageUrl);
+          addToHistory('image', imageUrl, prompt, size);
+          showSuccess('图片生成成功');
+        } else {
+          throw new Error('无效的响应格式');
+        }
+      } catch (error) {
+        showError(error.message);
+      } finally {
+        setLoading('image', false);
+      }
+    }
+
+    async function generateVideo() {
+      if (!apiKey) {
+        showError('请先配置 API Key');
+        return;
+      }
+
+      const prompt = document.getElementById('video-prompt').value.trim();
+      if (!prompt) {
+        showError('请输入提示词');
+        return;
+      }
+
+      const model = document.getElementById('video-model').value;
+      const width = parseInt(document.getElementById('video-width').value);
+      const height = parseInt(document.getElementById('video-height').value);
+      const frameRate = parseInt(document.getElementById('video-fps').value);
+      const numFrames = parseInt(document.getElementById('video-frames').value);
+
+      setLoading('video', true);
+
+      try {
+        const duration = Math.round(numFrames / frameRate);
+        const payload = {
+          model,
+          prompt,
+          width,
+          height,
+          duration
+        };
+
+        addDebugLog(`发送视频生成请求: ${endpoint}/videos`, 'info');
+        addDebugLog(`Payload: ${JSON.stringify(payload)}`, 'info');
+
+        const response = await fetch(`${endpoint}/videos`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+
+        addDebugLog(`响应状态: ${response.status}`, response.ok ? 'success' : 'error');
+        addDebugLog(`响应数据: ${JSON.stringify(data)}`, response.ok ? 'info' : 'error');
+
+        if (!response.ok) {
+          throw new Error(data.error?.message || data.error || '任务提交失败');
+        }
+
+        if (data.id) {
+          currentTaskId = data.id;
+          document.getElementById('video-task-id').textContent = `任务 ID: ${currentTaskId}`;
+          addDebugLog(`任务创建成功，TaskID: ${currentTaskId}`, 'success');
+          startVideoPolling();
+        } else {
+          throw new Error('无效的响应格式');
+        }
+      } catch (error) {
+        addDebugLog(`错误: ${error.message}`, 'error');
+        showError(error.message);
+        setLoading('video', false);
+      }
+    }
+
+    function startVideoPolling() {
+      let attempts = 0;
+      const maxAttempts = 60;
+      const startTime = Date.now();
+      let currentInterval = 10000;
+
+      document.getElementById('video-queue-hint').textContent = '(通常需要3-10分钟，高峰期可能更久)';
+
+      const updateElapsedTime = () => {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const minutes = Math.floor(elapsed / 60);
+        const seconds = elapsed % 60;
+        document.getElementById('video-elapsed-time').textContent = `已等待 ${minutes}分${seconds}秒`;
+      };
+
+      const runPolling = async () => {
+        attempts++;
+        updateElapsedTime();
+
+        const progress = Math.min((attempts / maxAttempts) * 100, 95);
+        document.getElementById('video-progress-bar').style.width = `${progress}%`;
+
+        try {
+          addDebugLog(`轮询第 ${attempts} 次: ${endpoint}/videos/${currentTaskId}`, 'info');
+          
+          const response = await fetch(`${endpoint}/videos/${currentTaskId}`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${apiKey}`
+            },
+            timeout: 30000
+          });
+          const data = await response.json();
+
+          addDebugLog(`轮询响应: status=${data.status}, progress=${data.progress !== undefined ? data.progress + '%' : 'N/A'}`, 'info');
+
+          if (data.status === 'succeeded' || data.status === 'completed') {
+            clearInterval(pollingInterval);
+            const videoUrl = data.data?.[0]?.url || data.remixed_from_video_id || data.video_url;
+            
+            addDebugLog(`视频生成成功! URL: ${videoUrl ? '已获取' : '未找到'}`, 'success');
+            
+            if (videoUrl) {
+              displayVideoResult(videoUrl);
+              const frames = document.getElementById('video-frames').value;
+              const fps = document.getElementById('video-fps').value;
+              addToHistory('video', videoUrl, document.getElementById('video-prompt').value, `${frames}帧 / ${fps}FPS`);
+              showSuccess('视频生成成功');
+              
+              if (Notification.permission === 'granted') {
+                new Notification('视频生成完成', {
+                  body: '您的视频已生成完毕，可以查看了！',
+                  icon: 'https://cdn-icons-png.flaticon.com/512/3669/3669909.png'
+                });
+              }
+            } else {
+              throw new Error('未找到视频 URL');
+            }
+          } else if (data.status === 'failed') {
+            clearInterval(pollingInterval);
+            addDebugLog(`任务失败: ${data.error?.message || data.error}`, 'error');
+            throw new Error(data.error?.message || data.error || '视频生成失败');
+          } else if (data.status === 'cancelled') {
+            clearInterval(pollingInterval);
+            throw new Error('任务已取消');
+          } else {
+            const statusConfig = {
+              'queued': { text: '排队中...', interval: 10000, hint: '(通常需要3-10分钟，高峰期可能更久)' },
+              'in_progress': { text: '生成中...', interval: 8000, hint: '' },
+              'processing': { text: '处理中...', interval: 8000, hint: '' },
+              'pending': { text: '等待中...', interval: 10000, hint: '' }
+            };
+            const config = statusConfig[data.status] || { text: '处理中...', interval: 8000, hint: '' };
+            
+            document.getElementById('video-progress-text').textContent = config.text;
+            document.getElementById('video-queue-hint').textContent = config.hint;
+            
+            if (currentInterval !== config.interval) {
+              currentInterval = config.interval;
+              clearInterval(pollingInterval);
+              pollingInterval = setInterval(runPolling, currentInterval);
+            }
+
+            const apiProgress = data.progress !== undefined ? data.progress : 0;
+            if (apiProgress > 0) {
+              document.getElementById('video-progress-bar').style.width = `${apiProgress}%`;
+            }
+          }
+        } catch (error) {
+          if (error.name === 'TypeError' || error.message.includes('fetch') || error.message.includes('network')) {
+            addDebugLog(`网络异常，自动重试: ${error.message}`, 'warning');
+            document.getElementById('video-progress-text').textContent = '网络重试中...';
+          } else {
+            addDebugLog(`轮询错误: ${error.message}`, 'error');
+            clearInterval(pollingInterval);
+            showError(error.message);
+            setLoading('video', false);
+          }
+        }
+
+        if (attempts >= maxAttempts) {
+          clearInterval(pollingInterval);
+          addDebugLog('超时：视频生成时间过长', 'error');
+          showError('超时：视频生成时间过长，请稍后重试');
+          setLoading('video', false);
+        }
+      };
+
+      pollingInterval = setInterval(runPolling, currentInterval);
+    }
+
+    function setLoading(type, loading) {
+      const btn = type === 'image' ? document.getElementById('generate-image-btn') : document.getElementById('generate-video-btn');
+      const progress = type === 'image' ? document.getElementById('image-progress') : document.getElementById('video-progress');
+      const progressBar = type === 'image' ? document.getElementById('image-progress-bar') : document.getElementById('video-progress-bar');
+      const progressText = type === 'image' ? document.getElementById('image-progress-text') : document.getElementById('video-progress-text');
+
+      if (loading) {
+        btn.disabled = true;
+        btn.innerHTML = '<div class="loading-spinner w-4 h-4"></div> 生成中...';
+        progress.classList.remove('hidden');
+        progressBar.style.width = '0%';
+        
+        let width = 0;
+        const interval = setInterval(() => {
+          width += Math.random() * 10;
+          if (width > 90) width = 90;
+          progressBar.style.width = `${width}%`;
+          if (!btn.disabled) clearInterval(interval);
+        }, 300);
+      } else {
+        btn.disabled = false;
+        btn.innerHTML = type === 'image' ? '<i class="fas fa-magic"></i> 生成图片' : '<i class="fas fa-play"></i> 生成视频';
+        progress.classList.add('hidden');
+        progressBar.style.width = '0%';
+        progressText.textContent = '0%';
+      }
+    }
+
+    function displayImageResult(url) {
+      const container = document.getElementById('result-container');
+      container.innerHTML = `
+        <img src="${url}" class="w-full h-full object-contain fade-in" alt="生成的图片">
+      `;
+      document.getElementById('result-info').classList.remove('hidden');
+      document.getElementById('result-time').textContent = `生成时间: ${new Date().toLocaleTimeString()}`;
+      document.getElementById('download-btn').onclick = () => downloadResult(url, 'image');
+    }
+
+    function displayVideoResult(url) {
+      const container = document.getElementById('result-container');
+      container.innerHTML = `
+        <video src="${url}" class="w-full h-full object-contain fade-in" controls autoplay muted></video>
+      `;
+      document.getElementById('result-info').classList.remove('hidden');
+      document.getElementById('result-time').textContent = `生成时间: ${new Date().toLocaleTimeString()}`;
+      document.getElementById('download-btn').onclick = () => downloadResult(url, 'video');
+    }
+
+    function clearResult() {
+      const container = document.getElementById('result-container');
+      container.innerHTML = `
+        <div class="text-center text-slate-500">
+          <i class="fas fa-image text-4xl mb-2 opacity-30"></i>
+          <p class="text-sm">生成结果将显示在这里</p>
+        </div>
+      `;
+      document.getElementById('result-info').classList.add('hidden');
+    }
+
+    function downloadResult(url, type) {
+      if (!url) return;
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `agnes-${type}-${Date.now()}.${type === 'video' ? 'mp4' : 'png'}`;
+      a.target = '_blank';
+      a.click();
+    }
+
+    function addToHistory(type, url, prompt, info) {
+      const history = JSON.parse(localStorage.getItem('agnesHistory') || '[]');
+      history.unshift({
+        id: Date.now(),
+        type,
+        url,
+        prompt: prompt.slice(0, 50) + (prompt.length > 50 ? '...' : ''),
+        info,
+        time: new Date().toLocaleString()
+      });
+      if (history.length > 20) history.pop();
+      localStorage.setItem('agnesHistory', JSON.stringify(history));
+      loadHistory();
+    }
+
+    function loadHistory() {
+      const history = JSON.parse(localStorage.getItem('agnesHistory') || '[]');
+      const container = document.getElementById('history-list');
+
+      if (history.length === 0) {
+        container.innerHTML = '<p class="text-xs text-slate-500 text-center py-4">暂无历史记录</p>';
+        return;
+      }
+
+      container.innerHTML = history.map(item => `
+        <div class="glass-input rounded-lg p-3 flex items-center gap-3 hover:bg-slate-700/30 transition-colors cursor-pointer" onclick="loadHistoryItem('${item.url}', '${item.type}')">
+          <div class="w-12 h-12 rounded bg-slate-700 overflow-hidden flex-shrink-0">
+            ${item.type === 'image' ? 
+              `<img src="${item.url}" class="w-full h-full object-cover" loading="lazy">` :
+              `<div class="w-full h-full flex items-center justify-center bg-slate-800">
+                <i class="fas fa-video text-slate-500"></i>
+              </div>`
+            }
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-xs text-slate-300 truncate">${item.prompt}</p>
+            <p class="text-xs text-slate-500">${item.info} · ${item.time}</p>
+          </div>
+          <i class="fas fa-external-link-alt text-slate-600 text-xs"></i>
+        </div>
+      `).join('');
+    }
+
+    function loadHistoryItem(url, type) {
+      if (type === 'image') {
+        displayImageResult(url);
+        switchTab('image');
+      } else {
+        displayVideoResult(url);
+        switchTab('video');
+      }
+    }
+
+    function clearHistory() {
+      localStorage.removeItem('agnesHistory');
+      loadHistory();
+      showSuccess('历史记录已清空');
+    }
+
+    function updateVideoDuration() {
+      const frames = parseInt(document.getElementById('video-frames').value);
+      const fps = parseInt(document.getElementById('video-fps').value);
+      const duration = (frames / fps).toFixed(1);
+      document.getElementById('video-duration').textContent = `约 ${duration} 秒`;
+    }
+
+    function showError(message) {
+      const toast = document.getElementById('error-toast');
+      document.getElementById('error-message').textContent = message;
+      toast.classList.remove('translate-x-full');
+      setTimeout(() => toast.classList.add('translate-x-full'), 5000);
+    }
+
+    function showSuccess(message) {
+      const toast = document.getElementById('success-toast');
+      document.getElementById('success-message').textContent = message;
+      toast.classList.remove('translate-x-full');
+      setTimeout(() => toast.classList.add('translate-x-full'), 3000);
+    }
+  </script>
+</body>
+</html>
